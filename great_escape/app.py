@@ -5,10 +5,13 @@ import threading
 from typing import Any
 import tkinter as tk
 
+from .appearance import AppearanceMixin
 from .backup import BackupMixin
 from .config import APP_NAME, APP_VERSION, DEFAULT_ARCHIVE_DIR
 from .messaging import MessagingMixin
 from .models import LocalDestination, RcloneDestination, SourceItem
+from .platform_utils import maximize_window
+from .processes import ProcessMixin
 from .retention import RetentionMixin
 from .settings import SettingsMixin
 from .tools import ToolsMixin
@@ -17,8 +20,10 @@ from .ui import UIMixin
 
 class BackupApp(
     UIMixin,
+    AppearanceMixin,
     SettingsMixin,
     RetentionMixin,
+    ProcessMixin,
     BackupMixin,
     MessagingMixin,
     ToolsMixin,
@@ -28,7 +33,7 @@ class BackupApp(
         super().__init__()
         self.title(f"{APP_NAME} {APP_VERSION}")
         self.geometry("1120x760")
-        self.minsize(900, 620)
+        self.minsize(760, 520)
 
         self.sources: list[SourceItem] = []
         self.local_destinations: list[LocalDestination] = []
@@ -52,11 +57,15 @@ class BackupApp(
         self.status_var = tk.StringVar(value="Ready")
         self.progress_text_var = tk.StringVar(value="No backup running")
 
+        self._initialize_appearance()
         self._configure_styles()
         self._build_menu()
+        self._install_appearance_menu()
         self._build_ui()
         self._load_settings()
+        self._apply_appearance()
         self._refresh_all_trees()
         self._check_requirements(show_success=False)
+        self.after_idle(lambda: maximize_window(self))
         self.after(100, self._process_messages)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
