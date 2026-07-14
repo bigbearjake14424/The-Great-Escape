@@ -1,5 +1,6 @@
 import json
 import os
+from copy import deepcopy
 from dataclasses import asdict
 from typing import Any
 from tkinter import messagebox
@@ -8,6 +9,7 @@ from .config import (
     APP_NAME,
     CONFIG_DIR,
     CONFIG_FILE,
+    DEFAULT_APPEARANCE,
     DEFAULT_ARCHIVE_DIR,
     DEFAULT_LOCAL_DESTINATIONS,
     DEFAULT_SOURCES,
@@ -30,6 +32,7 @@ class SettingsMixin:
             "keep_local_archive": self.keep_local_archive_var.get(),
             "rclone_transfers": self.rclone_transfers_var.get(),
             "rclone_checkers": self.rclone_checkers_var.get(),
+            "appearance": dict(self.appearance),
         }
 
     def _save_settings(self, notify: bool = True) -> None:
@@ -47,6 +50,7 @@ class SettingsMixin:
             self.sources = [SourceItem(path) for path in DEFAULT_SOURCES]
             self.local_destinations = [LocalDestination(path) for path in DEFAULT_LOCAL_DESTINATIONS]
             self.rclone_destinations = []
+            self.appearance = deepcopy(DEFAULT_APPEARANCE)
             return
 
         try:
@@ -63,12 +67,17 @@ class SettingsMixin:
             self.keep_local_archive_var.set(data.get("keep_local_archive", True))
             self.rclone_transfers_var.set(data.get("rclone_transfers", 4))
             self.rclone_checkers_var.set(data.get("rclone_checkers", 8))
+            loaded_appearance = data.get("appearance", {})
+            self.appearance = {**deepcopy(DEFAULT_APPEARANCE), **loaded_appearance}
         except Exception as exc:
             messagebox.showwarning(APP_NAME, f"Settings could not be loaded. Defaults will be used.\n\n{exc}")
             self.sources = [SourceItem(path) for path in DEFAULT_SOURCES]
             self.local_destinations = [LocalDestination(path) for path in DEFAULT_LOCAL_DESTINATIONS]
+            self.rclone_destinations = []
+            self.appearance = deepcopy(DEFAULT_APPEARANCE)
 
     def _reload_settings(self) -> None:
         self._load_settings()
+        self._apply_appearance()
         self._refresh_all_trees()
         self._log("Settings reloaded.")
