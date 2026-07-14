@@ -6,17 +6,19 @@ from typing import Any
 import tkinter as tk
 
 from .appearance import AppearanceMixin
+from .automation import AutomationMixin
 from .backup import BackupMixin
 from .config import APP_NAME, APP_VERSION, DEFAULT_ARCHIVE_DIR
 from .databases import DatabaseDumpMixin
+from .dragdrop import DragDropMixin
 from .messaging import MessagingMixin
 from .models import DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
-from .platform_utils import maximize_window
 from .processes import ProcessMixin
 from .retention import RetentionMixin
 from .settings import SettingsMixin
 from .tools import ToolsMixin
 from .ui import UIMixin
+from .windowing import AppTk
 
 
 class BackupApp(
@@ -24,12 +26,14 @@ class BackupApp(
     AppearanceMixin,
     SettingsMixin,
     DatabaseDumpMixin,
+    DragDropMixin,
+    AutomationMixin,
     RetentionMixin,
     ProcessMixin,
     BackupMixin,
     MessagingMixin,
     ToolsMixin,
-    tk.Tk,
+    AppTk,
 ):
     def __init__(self) -> None:
         super().__init__()
@@ -61,18 +65,18 @@ class BackupApp(
         self.progress_text_var = tk.StringVar(value="No backup running")
 
         self._initialize_appearance()
+        self._initialize_automation()
         self._configure_styles()
         self._build_menu()
-        # Both insert at menu index 2. Installing Databases first and Appearance
-        # second yields: File, Tools, Appearance, Databases, Help.
         self._install_database_menu()
         self._install_appearance_menu()
+        self._install_automation_menu()
         self._build_ui()
         self._install_database_source_note()
         self._load_settings()
         self._apply_appearance()
         self._refresh_all_trees()
         self._check_requirements(show_success=False)
-        self.after_idle(lambda: maximize_window(self))
+        self._apply_startup_settings()
         self.after(100, self._process_messages)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
