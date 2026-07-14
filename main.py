@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: MIT
+# Copyright (C) 2026 Jacob Stallings
+# SPDX-License-Identifier: GPL-3.0-only
 """Launch The Great Escape backup manager."""
 
 from great_escape import BackupApp
