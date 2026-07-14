@@ -37,8 +37,6 @@ The Great Escape (from data loss...) is a cross-platform desktop backup utility 
 
 ## Menu layout
 
-The main menu is ordered as:
-
 ```text
 File | Tools | Appearance | Databases | Automation | Help
 ```
@@ -60,12 +58,6 @@ Available settings include:
 - Set the backup time using 24-hour `HH:MM` format.
 
 The built-in scheduler runs while The Great Escape is running. For reliable scheduled backups, leave the application open or enable the tray icon and close-to-tray behavior.
-
-The tray menu provides:
-
-- Show The Great Escape
-- Start Backup
-- Exit
 
 Tray support requires `pystray` and `Pillow`:
 
@@ -94,8 +86,6 @@ You can then:
 
 rclone destinations still require normal rclone configuration because a remote path is not a local filesystem folder.
 
-The app continues to work normally when `tkinterdnd2` is not installed; only drag-and-drop is disabled.
-
 ## Database dumps
 
 Open **Databases → Manage Database Dumps…**.
@@ -111,8 +101,6 @@ Profiles support:
 - A specific executable or full executable path
 - A protected MySQL/MariaDB defaults file
 - Optional extra command-line arguments
-
-The application uses options for consistent and complete dumps, including routines, events, triggers, transactions, and binary data.
 
 Passwords are not stored in the JSON settings file. Store credentials in a protected client option file, for example:
 
@@ -262,6 +250,12 @@ Please use the software and share feedback, bug reports, suggestions, and improv
 
 When proposing a change, explanations are especially valuable. Describing why a different design or coding approach is better helps make this repository a more useful learning project.
 
+Contributions are accepted under the same **GNU General Public License version 3 only** terms that apply to the project. Contributors should preserve applicable copyright, license, and attribution notices and clearly identify modified files where required.
+
 ## License
 
-MIT License. See `LICENSE`.
+Copyright © 2026 Jacob Stallings.
+
+The Great Escape is free software licensed under the **GNU General Public License, version 3 only (`GPL-3.0-only`)**. You may use, study, modify, and redistribute it under those terms. Distributed modified versions must remain under GPLv3 and must make the corresponding source available as required by the license.
+
+See [`LICENSE`](LICENSE) for the license terms and [`NOTICE`](NOTICE) for project attribution information.
