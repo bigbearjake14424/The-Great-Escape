@@ -1,12 +1,8 @@
 # The Great Escape
 
-**Current version: 1.2.0**
+**Current version: 1.3.0**
 
-The Great Escape is a Linux desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
-
-## Why the project is modular
-
-The source is split into focused modules so individual features can be reviewed, tested, and committed independently. This also makes direct GitHub updates from connected development tools more reliable than maintaining one very large script.
+The Great Escape is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
 ## Features
 
@@ -20,8 +16,34 @@ The source is split into focused modules so individual features can be reviewed,
 - Use `.partial` local files until copying completes.
 - Keep only the newest five matching backup archives in each destination.
 - Prune old archives from both local folders and rclone remotes after a successful transfer.
-- Cancel an active backup.
-- Save settings and timestamped logs under the user home directory.
+- Customize the TTK theme, fonts, font sizes, window colors, list colors, and accent color.
+- Store backup and appearance preferences in one JSON settings file.
+- Maximize the application for the available screen on Windows, macOS, Linux, and Raspberry Pi OS.
+- Cancel an active backup using platform-appropriate process handling.
+
+## Appearance settings
+
+Open **Appearance → Customize…** to change:
+
+- Available TTK theme
+- Font family
+- Base font size
+- Heading font size
+- Treeview font size
+- Button font size
+- Window background
+- Text color
+- Entry and list background
+- Accent and selection color
+- Selected-text color
+
+Use **Apply** to preview changes or **Save** to write them to:
+
+```text
+~/.config/the-great-escape/settings.json
+```
+
+Use **Appearance → Reset to Defaults** to restore the original appearance.
 
 ## Destination retention
 
@@ -33,21 +55,44 @@ Only generated archive names matching this format are eligible for cleanup:
 prefix_YYYYMMDD_HHMMSS.tar.xz
 ```
 
-Unrelated files, folders, partial files, and archives with a different prefix are not deleted. Retention cleanup failures are written to the activity log as warnings and do not remove the newly completed backup.
+Unrelated files, folders, partial files, and archives with a different prefix are not deleted.
 
-## Requirements
+## Supported platforms
+
+The Python application supports:
+
+- Raspberry Pi OS and other Linux distributions
+- Windows 10 and Windows 11
+- macOS
+- Python 3.10 and newer, including CPython virtual environments
+
+The backup engine requires `tar` and `xz` to be installed and available in `PATH`. `rclone` is optional unless cloud destinations are enabled.
+
+### Raspberry Pi OS, Debian, and Ubuntu
 
 ```bash
 sudo apt update
 sudo apt install python3 python3-tk tar xz-utils rclone
 ```
 
-`rclone` is optional unless cloud destinations are enabled.
+### Windows
+
+Install Python with Tkinter, plus versions of GNU tar and xz that are available in `PATH`. Install rclone separately when cloud destinations are needed.
+
+### macOS
+
+Python must include Tkinter. Install xz and rclone with your preferred package manager. macOS includes `tar`, although GNU tar may provide the most consistent behavior.
 
 ## Run
 
 ```bash
 python3 main.py
+```
+
+On Windows:
+
+```powershell
+py main.py
 ```
 
 ## Project layout
@@ -56,10 +101,13 @@ python3 main.py
 main.py
 great_escape/
 ├── app.py
+├── appearance.py
 ├── backup.py
 ├── config.py
 ├── messaging.py
 ├── models.py
+├── platform_utils.py
+├── processes.py
 ├── retention.py
 ├── settings.py
 ├── tools.py
