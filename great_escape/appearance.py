@@ -18,7 +18,7 @@ class AppearanceMixin:
         appearance_menu = tk.Menu(menubar, tearoff=False)
         appearance_menu.add_command(label="Customize…", command=self._show_appearance_dialog)
         appearance_menu.add_command(label="Reset to Defaults", command=self._reset_appearance)
-        menubar.insert_cascade(1, label="Appearance", menu=appearance_menu)
+        menubar.insert_cascade(2, label="Appearance", menu=appearance_menu)
 
     def _apply_appearance(self) -> None:
         values = {**DEFAULT_APPEARANCE, **self.appearance}
@@ -61,8 +61,14 @@ class AppearanceMixin:
         style.configure("TSpinbox", fieldbackground=surface, foreground=foreground, font=(family, base_size))
         style.configure("TNotebook", background=background)
         style.configure("TNotebook.Tab", font=(family, base_size), padding=(10, 5))
-        style.configure("Treeview", background=surface, fieldbackground=surface, foreground=foreground,
-                        font=(family, tree_size), rowheight=max(24, tree_size + 14))
+        style.configure(
+            "Treeview",
+            background=surface,
+            fieldbackground=surface,
+            foreground=foreground,
+            font=(family, tree_size),
+            rowheight=max(24, tree_size + 14),
+        )
         style.configure("Treeview.Heading", font=(family, tree_size, "bold"))
         style.map("Treeview", background=[("selected", accent)], foreground=[("selected", selection_foreground)])
         style.configure("TProgressbar", background=accent)
@@ -104,13 +110,23 @@ class AppearanceMixin:
         body.columnconfigure(1, weight=1)
 
         ttk.Label(body, text="TTK theme:").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Combobox(body, textvariable=variables["ttk_theme"], values=ttk.Style(self).theme_names(),
-                     state="readonly", width=28).grid(row=0, column=1, sticky="ew", pady=4)
+        ttk.Combobox(
+            body,
+            textvariable=variables["ttk_theme"],
+            values=ttk.Style(self).theme_names(),
+            state="readonly",
+            width=28,
+        ).grid(row=0, column=1, sticky="ew", pady=4)
 
         ttk.Label(body, text="Font family:").grid(row=1, column=0, sticky="w", pady=4)
         families = sorted(set(font.families(self)))
-        ttk.Combobox(body, textvariable=variables["font_family"], values=families,
-                     state="readonly", width=28).grid(row=1, column=1, sticky="ew", pady=4)
+        ttk.Combobox(
+            body,
+            textvariable=variables["font_family"],
+            values=families,
+            state="readonly",
+            width=28,
+        ).grid(row=1, column=1, sticky="ew", pady=4)
 
         labels = (
             ("Base font size:", "base_font_size"),
@@ -121,7 +137,9 @@ class AppearanceMixin:
         row = 2
         for label, key in labels:
             ttk.Label(body, text=label).grid(row=row, column=0, sticky="w", pady=4)
-            ttk.Spinbox(body, from_=8, to=32, textvariable=variables[key], width=8).grid(row=row, column=1, sticky="w", pady=4)
+            ttk.Spinbox(body, from_=8, to=32, textvariable=variables[key], width=8).grid(
+                row=row, column=1, sticky="w", pady=4
+            )
             row += 1
 
         def choose_color(key: str) -> None:
@@ -140,7 +158,9 @@ class AppearanceMixin:
             holder = ttk.Frame(body)
             holder.grid(row=row, column=1, sticky="ew", pady=4)
             ttk.Entry(holder, textvariable=variables[key], width=14).pack(side="left", fill="x", expand=True)
-            ttk.Button(holder, text="Choose…", command=lambda selected_key=key: choose_color(selected_key)).pack(side="left", padx=(6, 0))
+            ttk.Button(holder, text="Choose…", command=lambda selected_key=key: choose_color(selected_key)).pack(
+                side="left", padx=(6, 0)
+            )
             row += 1
 
         def apply_changes(save: bool = False) -> None:
