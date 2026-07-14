@@ -3,6 +3,7 @@ import subprocess
 from tkinter import messagebox
 
 from .config import APP_NAME, APP_VERSION, DEFAULT_LOG_DIR
+from .platform_utils import launch_rclone_config, open_path
 
 
 class ToolsMixin:
@@ -29,9 +30,7 @@ class ToolsMixin:
         if shutil.which("rclone") is None:
             messagebox.showerror(APP_NAME, "rclone is not installed or is not in PATH.")
             return
-        try:
-            subprocess.Popen(["x-terminal-emulator", "-e", "rclone", "config"])
-        except FileNotFoundError:
+        if not launch_rclone_config():
             messagebox.showinfo(APP_NAME, "Open a terminal and run:\n\nrclone config")
 
     @staticmethod
@@ -58,9 +57,9 @@ class ToolsMixin:
     def _open_log_folder() -> None:
         DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
         try:
-            subprocess.Popen(["xdg-open", str(DEFAULT_LOG_DIR)])
-        except FileNotFoundError:
-            messagebox.showinfo(APP_NAME, f"Log folder:\n{DEFAULT_LOG_DIR}")
+            open_path(DEFAULT_LOG_DIR)
+        except (OSError, subprocess.SubprocessError) as exc:
+            messagebox.showinfo(APP_NAME, f"Log folder:\n{DEFAULT_LOG_DIR}\n\nCould not open it automatically: {exc}")
 
     @staticmethod
     def _show_about() -> None:
@@ -68,7 +67,8 @@ class ToolsMixin:
             APP_NAME,
             f"{APP_NAME} {APP_VERSION}\n\n"
             "Creates a .tar.xz archive using GNU tar and multi-threaded xz, then distributes the completed archive "
-            "to enabled local folders and rclone destinations. Settings are stored only in your home directory.",
+            "to enabled local folders and rclone destinations. Appearance and backup settings are stored as JSON "
+            "in the user's home directory.",
         )
 
     def _on_close(self) -> None:
