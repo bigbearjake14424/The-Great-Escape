@@ -8,9 +8,9 @@ copying that completed archive to multiple local folders and rclone remotes.
 Designed for Linux, including Raspberry Pi OS, with:
     python3, tar, xz, and optionally rclone
 
-Compression uses GNU tar with multi-threaded xz. Thread count is configurable.
+Compression uses GNU tar with multithreaded xz. Thread count is configurable.
 
-The archive is built once. Only after tar/xz finishes successfully is the
+The archive is built once. Only after tar/xz finishes successfully, is the
 archive copied/uploaded to the enabled destinations.
 """
 
@@ -740,7 +740,7 @@ class BackupApp(tk.Tk):
         compressor = f"xz {level} -T{threads}"
 
         # GNU tar's -C entries preserve readable relative names and avoid storing
-        # absolute paths. Duplicate basenames are allowed by tar, though restoring
+        # absolute paths. Duplicate basename are allowed by tar, though restoring
         # one over another should be done carefully.
         command = [
             "tar",
