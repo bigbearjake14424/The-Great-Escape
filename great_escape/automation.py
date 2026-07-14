@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from copy import deepcopy
 from datetime import datetime
-import threading
+import os
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -31,7 +32,8 @@ class AutomationMixin:
     def _apply_startup_settings(self) -> None:
         self._configure_drag_and_drop()
         if self.automation.get("tray_enabled", False):
-            self._start_tray_icon(show_errors=False)
+            if not self._start_tray_icon(show_errors=False):
+                self._disable_unavailable_tray_settings()
         self._start_scheduler()
 
         if self.automation.get("start_minimized", False) and self.tray_available:
@@ -79,7 +81,12 @@ class AutomationMixin:
         ).pack(anchor="w", pady=3)
         ttk.Label(
             tray_frame,
-            text="System tray support requires pystray and Pillow.",
+            text=(
+                "System tray support requires pystray and Pillow. Some Linux desktops do not provide "
+                "a compatible tray manager; the app will remain visible when no tray is available."
+            ),
+            wraplength=520,
+            justify="left",
         ).pack(anchor="w", pady=(6, 0))
 
         schedule_frame = ttk.LabelFrame(body, text="Automatic backup schedule", padding=10)
@@ -124,9 +131,7 @@ class AutomationMixin:
 
             if self.automation["tray_enabled"]:
                 if not self._start_tray_icon(show_errors=True):
-                    self.automation["tray_enabled"] = False
-                    self.automation["start_minimized"] = False
-                    self.automation["close_to_tray"] = False
+                    self._disable_unavailable_tray_settings()
             else:
                 self._stop_tray_icon()
 
@@ -200,6 +205,23 @@ class AutomationMixin:
                 )
             return False
 
+        backend_module = getattr(pystray.Icon, "__module__", "")
+        if sys.platform.startswith("linux") and backend_module.endswith("._xorg"):
+            available, detail = self._linux_x11_tray_manager_available()
+            if not available:
+                self.tray_available = False
+                self._log(f"System tray disabled: {detail}")
+                if show_errors:
+                    messagebox.showwarning(
+                        APP_NAME,
+                        "This Linux desktop does not provide an X11 system-tray manager that pystray can use.\n\n"
+                        "The Great Escape will continue running normally, but it cannot hide to a tray icon in "
+                        "this desktop session. Keep the main window open for scheduled backups.\n\n"
+                        "On desktops that support AppIndicator, installing the desktop's AppIndicator support "
+                        "may provide a compatible tray.",
+                    )
+                return False
+
         image = Image.new("RGBA", (64, 64), (47, 111, 237, 255))
         draw = ImageDraw.Draw(image)
         draw.rectangle((14, 12, 50, 52), outline="white", width=4)
@@ -233,6 +255,43 @@ class AutomationMixin:
 
         self.tray_available = True
         return True
+
+    @staticmethod
+    def _linux_x11_tray_manager_available() -> tuple[bool, str]:
+        """Return whether the current X11 screen owns the system-tray selection."""
+        if not os.environ.get("DISPLAY"):
+            return False, "No DISPLAY environment variable is available."
+        try:
+            from Xlib import X, display
+        except ImportError:
+            return False, "python-xlib is unavailable, so the X11 tray could not be checked."
+
+        connection = None
+        try:
+            connection = display.Display()
+            screen_number = connection.get_default_screen()
+            selection_name = f"_NET_SYSTEM_TRAY_S{screen_number}"
+            selection_atom = connection.intern_atom(selection_name, only_if_exists=True)
+            if selection_atom == X.NONE:
+                return False, f"No {selection_name} selection exists."
+            owner = connection.get_selection_owner(selection_atom)
+            if owner == X.NONE:
+                return False, f"No desktop process owns {selection_name}."
+            return True, "An X11 system-tray manager is available."
+        except Exception as exc:
+            return False, f"The X11 tray manager check failed: {exc}"
+        finally:
+            if connection is not None:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
+
+    def _disable_unavailable_tray_settings(self) -> None:
+        self.automation["tray_enabled"] = False
+        self.automation["start_minimized"] = False
+        self.automation["close_to_tray"] = False
+        self._save_settings(notify=False)
 
     def _stop_tray_icon(self) -> None:
         icon = self.tray_icon
