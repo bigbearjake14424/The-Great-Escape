@@ -1,6 +1,6 @@
 # The Great Escape
 
-**Current version: 1.3.0**
+**Current version: 1.4.0**
 
 The Great Escape is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
@@ -10,6 +10,9 @@ The Great Escape is a cross-platform desktop backup utility built with Python, T
 - Enable or disable configured sources and destinations.
 - Create `.tar.xz` archives with multi-threaded xz compression.
 - Use four compression threads on Raspberry Pi 5.
+- Create MySQL and MariaDB SQL dumps before building the archive.
+- Back up one database or all databases from multiple configured servers.
+- Include routines, events, triggers, and binary data in database dumps.
 - Copy completed archives to multiple local destinations.
 - Upload archives to multiple rclone remotes.
 - Verify archives before distribution.
@@ -20,6 +23,53 @@ The Great Escape is a cross-platform desktop backup utility built with Python, T
 - Store backup and appearance preferences in one JSON settings file.
 - Maximize the application for the available screen on Windows, macOS, Linux, and Raspberry Pi OS.
 - Cancel an active backup using platform-appropriate process handling.
+
+## MySQL and MariaDB dumps
+
+Open **Databases → Manage MySQL / MariaDB Dumps…** to add database dump profiles.
+
+Each profile supports:
+
+- Profile name
+- Host and port
+- Database user
+- One named database or all databases
+- Automatic detection of `mariadb-dump` or `mysqldump`
+- A specific executable name or full executable path
+- A MySQL/MariaDB client defaults file
+- Optional extra command-line arguments
+- Enable or disable without removing the profile
+
+Database dumps are created immediately before archive compression. The generated `.sql` files are placed inside a `database_dumps` folder in the tarball. Temporary uncompressed SQL files are removed automatically after archive creation.
+
+### Password security
+
+The application does **not** store database passwords in its JSON settings file. Store credentials in a MySQL/MariaDB client option file and select it in the profile's **Defaults file** field.
+
+Example option file:
+
+```ini
+[client]
+password=your_database_password
+```
+
+On Linux, protect the file:
+
+```bash
+chmod 600 ~/.my.cnf
+```
+
+The dump profile stores only the path to that file. Do not commit credential files to GitHub.
+
+### Database client requirement
+
+Install a compatible client utility on the computer running The Great Escape:
+
+```bash
+sudo apt install mariadb-client
+```
+
+Depending on the installation, the dump command may be named `mariadb-dump` or `mysqldump`. The **auto** setting checks for both.
 
 ## Appearance settings
 
@@ -66,22 +116,22 @@ The Python application supports:
 - macOS
 - Python 3.10 and newer, including CPython virtual environments
 
-The backup engine requires `tar` and `xz` to be installed and available in `PATH`. `rclone` is optional unless cloud destinations are enabled.
+The backup engine requires `tar` and `xz` to be installed and available in `PATH`. `rclone` is optional unless cloud destinations are enabled. `mariadb-dump` or `mysqldump` is required only when database dump profiles are enabled.
 
 ### Raspberry Pi OS, Debian, and Ubuntu
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-tk tar xz-utils rclone
+sudo apt install python3 python3-tk tar xz-utils rclone mariadb-client
 ```
 
 ### Windows
 
-Install Python with Tkinter, plus versions of GNU tar and xz that are available in `PATH`. Install rclone separately when cloud destinations are needed.
+Install Python with Tkinter, plus versions of GNU tar and xz that are available in `PATH`. Install rclone separately when cloud destinations are needed. Install MySQL Shell, MySQL Client, or MariaDB Client when database dumps are needed, and ensure the dump executable is available in `PATH` or select its full path in the profile.
 
 ### macOS
 
-Python must include Tkinter. Install xz and rclone with your preferred package manager. macOS includes `tar`, although GNU tar may provide the most consistent behavior.
+Python must include Tkinter. Install xz, rclone, and a MySQL or MariaDB client with your preferred package manager. macOS includes `tar`, although GNU tar may provide the most consistent behavior.
 
 ## Run
 
@@ -104,6 +154,7 @@ great_escape/
 ├── appearance.py
 ├── backup.py
 ├── config.py
+├── databases.py
 ├── messaging.py
 ├── models.py
 ├── platform_utils.py
