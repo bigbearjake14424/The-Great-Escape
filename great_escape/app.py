@@ -9,12 +9,21 @@ from .backup import BackupMixin
 from .config import APP_NAME, APP_VERSION, DEFAULT_ARCHIVE_DIR
 from .messaging import MessagingMixin
 from .models import LocalDestination, RcloneDestination, SourceItem
+from .retention import RetentionMixin
 from .settings import SettingsMixin
 from .tools import ToolsMixin
 from .ui import UIMixin
 
 
-class BackupApp(UIMixin, SettingsMixin, BackupMixin, MessagingMixin, ToolsMixin, tk.Tk):
+class BackupApp(
+    UIMixin,
+    SettingsMixin,
+    RetentionMixin,
+    BackupMixin,
+    MessagingMixin,
+    ToolsMixin,
+    tk.Tk,
+):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"{APP_NAME} {APP_VERSION}")
