@@ -1,8 +1,18 @@
 # The Great Escape
 
+## A Note from the Developer
+
+Yes, I know this project is over-engineered. I used this project to help me learn to code in Python. I had a stroke in 2014 that makes learning new things tougher. The use of AI to help me learn makes it easier.
+
+I set up ChatGPT to help explain starting points, answer beginner questions, review ideas, and help me understand why the code works. Please use the software and give me feedback. I will always welcome collaboration.
+
+If you are an experienced developer and notice something that could be improved, please do not assume I already know the “right” way to do it. Tell me why your approach is better. One of the main goals of this project is to learn and become a better programmer.
+
+Thank you for taking a look at **The Great Escape**!
+
 **Current version: 1.6.0**
 
-The Great Escape (from dataloss...) is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
+The Great Escape (from data loss...) is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
 ## Features
 
@@ -211,6 +221,46 @@ great_escape/
 Settings: `~/.config/the-great-escape/settings.json`  
 Logs: `~/.config/the-great-escape/logs/`  
 Default archive directory: `~/Backups/The-Great-Escape/`
+
+## AI Assistance and Disclosure
+
+This project was developed with substantial assistance from OpenAI's ChatGPT as a learning, design, debugging, and documentation aid.
+
+ChatGPT was used to help:
+
+- Explain Python concepts and provide starting points.
+- Answer beginner questions without judgment.
+- Explore application architecture and feature design.
+- Learn Tkinter and TTK development.
+- Improve cross-platform compatibility.
+- Refactor the application into smaller, maintainable modules.
+- Review, troubleshoot, and revise code.
+- Draft and improve project documentation.
+
+Development sessions for this project have used OpenAI GPT-5-series reasoning models, including **GPT-5.4 Thinking**, **GPT-5.5 Thinking**, and **GPT-5.6 Thinking**. Model availability and names may change as OpenAI updates its services.
+
+AI-generated suggestions can contain mistakes. The project maintainer remains responsible for selecting features, reviewing changes, testing the application, accepting contributions, and deciding what is included in a release.
+
+### Official AI Links
+
+- [Try ChatGPT](https://chatgpt.com/)
+- [Learn more about OpenAI](https://openai.com/)
+
+## Built With
+
+- [Python](https://www.python.org/)
+- Tkinter and TTK
+- SQLite
+- MySQL and MariaDB client tools
+- GNU tar and xz
+- [rclone](https://rclone.org/)
+- [OpenAI ChatGPT](https://chatgpt.com/)
+
+## Contributing and Feedback
+
+Please use the software and share feedback, bug reports, suggestions, and improvements. Collaboration is always welcome.
+
+When proposing a change, explanations are especially valuable. Describing why a different design or coding approach is better helps make this repository a more useful learning project.
 
 ## License
 
