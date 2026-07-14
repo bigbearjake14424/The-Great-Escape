@@ -63,9 +63,12 @@ class BackupApp(
         self._initialize_appearance()
         self._configure_styles()
         self._build_menu()
-        self._install_appearance_menu()
+        # Both insert at menu index 2. Installing Databases first and Appearance
+        # second yields: File, Tools, Appearance, Databases, Help.
         self._install_database_menu()
+        self._install_appearance_menu()
         self._build_ui()
+        self._install_database_source_note()
         self._load_settings()
         self._apply_appearance()
         self._refresh_all_trees()
