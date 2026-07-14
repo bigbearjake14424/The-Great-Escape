@@ -8,8 +8,9 @@ import tkinter as tk
 from .appearance import AppearanceMixin
 from .backup import BackupMixin
 from .config import APP_NAME, APP_VERSION, DEFAULT_ARCHIVE_DIR
+from .databases import DatabaseDumpMixin
 from .messaging import MessagingMixin
-from .models import LocalDestination, RcloneDestination, SourceItem
+from .models import DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
 from .platform_utils import maximize_window
 from .processes import ProcessMixin
 from .retention import RetentionMixin
@@ -22,6 +23,7 @@ class BackupApp(
     UIMixin,
     AppearanceMixin,
     SettingsMixin,
+    DatabaseDumpMixin,
     RetentionMixin,
     ProcessMixin,
     BackupMixin,
@@ -38,6 +40,7 @@ class BackupApp(
         self.sources: list[SourceItem] = []
         self.local_destinations: list[LocalDestination] = []
         self.rclone_destinations: list[RcloneDestination] = []
+        self.database_profiles: list[DatabaseDumpProfile] = []
 
         self.message_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.worker_thread: threading.Thread | None = None
@@ -61,6 +64,7 @@ class BackupApp(
         self._configure_styles()
         self._build_menu()
         self._install_appearance_menu()
+        self._install_database_menu()
         self._build_ui()
         self._load_settings()
         self._apply_appearance()
