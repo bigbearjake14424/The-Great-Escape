@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 from dataclasses import asdict
@@ -16,36 +17,57 @@ from .platform_utils import popen_platform_options
 
 
 class DatabaseDumpMixin:
-    """Manage database dump profiles and add generated SQL files to archives."""
+    """Manage database profiles and add generated dumps to each archive."""
 
     def _install_database_menu(self) -> None:
         menubar = self.nametowidget(self.cget("menu"))
         database_menu = tk.Menu(menubar, tearoff=False)
-        database_menu.add_command(label="Manage MySQL / MariaDB Dumps…", command=self._show_database_profiles)
+        database_menu.add_command(label="Manage Database Dumps…", command=self._show_database_profiles)
         menubar.insert_cascade(2, label="Databases", menu=database_menu)
+
+    def _install_database_source_note(self) -> None:
+        note = ttk.LabelFrame(
+            self.sources_tab,
+            text="Database backups",
+            style="Section.TLabelframe",
+            padding=8,
+        )
+        note.pack(fill="x", pady=(8, 0))
+        ttk.Label(
+            note,
+            text=(
+                "MySQL, MariaDB, and SQLite dumps can be generated automatically and included in this backup. "
+                "Database profiles are managed separately from ordinary file and folder sources."
+            ),
+            wraplength=850,
+            justify="left",
+        ).pack(side="left", fill="x", expand=True)
+        ttk.Button(note, text="Manage Database Dumps…", command=self._show_database_profiles).pack(
+            side="right", padx=(8, 0)
+        )
 
     def _show_database_profiles(self) -> None:
         dialog = tk.Toplevel(self)
         dialog.title(f"{APP_NAME} Database Dumps")
         dialog.transient(self)
         dialog.grab_set()
-        dialog.geometry("940x430")
-        dialog.minsize(760, 360)
+        dialog.geometry("1040x450")
+        dialog.minsize(820, 380)
 
         frame = ttk.Frame(dialog, padding=12)
         frame.pack(fill="both", expand=True)
 
-        columns = ("enabled", "name", "server", "user", "scope", "executable")
+        columns = ("enabled", "name", "engine", "location", "user", "scope")
         tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse")
         headings = {
             "enabled": "Use",
             "name": "Profile",
-            "server": "Server",
+            "engine": "Database type",
+            "location": "Server or file",
             "user": "User",
             "scope": "Database scope",
-            "executable": "Dump program",
         }
-        widths = {"enabled": 55, "name": 150, "server": 190, "user": 120, "scope": 190, "executable": 120}
+        widths = {"enabled": 55, "name": 150, "engine": 135, "location": 260, "user": 110, "scope": 250}
         for column in columns:
             tree.heading(column, text=headings[column])
             tree.column(column, width=widths[column], anchor="center" if column == "enabled" else "w")
@@ -54,6 +76,8 @@ class DatabaseDumpMixin:
         def refresh() -> None:
             tree.delete(*tree.get_children())
             for index, profile in enumerate(self.database_profiles):
+                location = profile.sqlite_path if profile.engine.lower() == "sqlite" else f"{profile.host}:{profile.port}"
+                user = "—" if profile.engine.lower() == "sqlite" else profile.user
                 tree.insert(
                     "",
                     "end",
@@ -61,10 +85,10 @@ class DatabaseDumpMixin:
                     values=(
                         "Yes" if profile.enabled else "No",
                         profile.name,
-                        f"{profile.host}:{profile.port}",
-                        profile.user,
+                        profile.engine_label,
+                        location,
+                        user,
                         profile.scope_label,
-                        profile.executable,
                     ),
                 )
 
@@ -96,7 +120,9 @@ class DatabaseDumpMixin:
 
         def remove_profile() -> None:
             index = selected_index()
-            if index is not None and messagebox.askyesno(APP_NAME, "Remove the selected database profile?", parent=dialog):
+            if index is not None and messagebox.askyesno(
+                APP_NAME, "Remove the selected database profile?", parent=dialog
+            ):
                 self.database_profiles.pop(index)
                 refresh()
 
@@ -106,13 +132,21 @@ class DatabaseDumpMixin:
         ttk.Button(buttons, text="Edit", command=edit_profile).pack(side="left", padx=5)
         ttk.Button(buttons, text="Enable / Disable", command=toggle_profile).pack(side="left")
         ttk.Button(buttons, text="Remove", command=remove_profile).pack(side="left", padx=5)
-        ttk.Button(buttons, text="Save and Close", command=lambda: (self._save_settings(notify=False), dialog.destroy())).pack(side="right")
+        ttk.Button(
+            buttons,
+            text="Save and Close",
+            command=lambda: (self._save_settings(notify=False), dialog.destroy()),
+        ).pack(side="right")
 
-        note = (
-            "Passwords are not stored in JSON. Use a MySQL/MariaDB client option file in Defaults file, "
-            "for example ~/.my.cnf on Linux or an option file created for this app on Windows."
-        )
-        ttk.Label(frame, text=note, wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
+        ttk.Label(
+            frame,
+            text=(
+                "MySQL/MariaDB passwords are never stored in JSON; use a protected client option file. "
+                "SQLite uses Python's built-in sqlite3 module and needs no external dump program."
+            ),
+            wraplength=980,
+            justify="left",
+        ).pack(anchor="w", pady=(10, 0))
         tree.bind("<Double-1>", lambda _event: edit_profile())
         refresh()
 
@@ -130,6 +164,7 @@ class DatabaseDumpMixin:
         values = asdict(profile)
         variables = {
             "name": tk.StringVar(value=str(values["name"])),
+            "engine": tk.StringVar(value=str(values.get("engine", "mysql"))),
             "database": tk.StringVar(value=str(values["database"])),
             "host": tk.StringVar(value=str(values["host"])),
             "port": tk.StringVar(value=str(values["port"])),
@@ -138,6 +173,7 @@ class DatabaseDumpMixin:
             "defaults_file": tk.StringVar(value=str(values["defaults_file"])),
             "extra_args": tk.StringVar(value=str(values["extra_args"])),
             "all_databases": tk.BooleanVar(value=bool(values["all_databases"])),
+            "sqlite_path": tk.StringVar(value=str(values.get("sqlite_path", ""))),
             "enabled": tk.BooleanVar(value=bool(values["enabled"])),
         }
 
@@ -145,8 +181,24 @@ class DatabaseDumpMixin:
         body.pack(fill="both", expand=True)
         body.columnconfigure(1, weight=1)
 
-        rows = (
-            ("Profile name:", "name"),
+        ttk.Label(body, text="Profile name:").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Entry(body, textvariable=variables["name"], width=56).grid(
+            row=0, column=1, columnspan=2, sticky="ew", padx=(8, 0), pady=4
+        )
+        ttk.Label(body, text="Database type:").grid(row=1, column=0, sticky="w", pady=4)
+        engine_combo = ttk.Combobox(
+            body,
+            textvariable=variables["engine"],
+            values=("mysql", "sqlite"),
+            state="readonly",
+            width=18,
+        )
+        engine_combo.grid(row=1, column=1, sticky="w", padx=(8, 0), pady=4)
+
+        mysql_frame = ttk.LabelFrame(body, text="MySQL / MariaDB", padding=10)
+        mysql_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(8, 4))
+        mysql_frame.columnconfigure(1, weight=1)
+        mysql_rows = (
             ("Host:", "host"),
             ("Port:", "port"),
             ("User:", "user"),
@@ -155,70 +207,109 @@ class DatabaseDumpMixin:
             ("Defaults file:", "defaults_file"),
             ("Extra arguments:", "extra_args"),
         )
-        for row, (label, key) in enumerate(rows):
-            ttk.Label(body, text=label).grid(row=row, column=0, sticky="w", pady=4)
-            ttk.Entry(body, textvariable=variables[key], width=54).grid(row=row, column=1, sticky="ew", padx=(8, 0), pady=4)
+        for row, (label, key) in enumerate(mysql_rows):
+            ttk.Label(mysql_frame, text=label).grid(row=row, column=0, sticky="w", pady=3)
+            ttk.Entry(mysql_frame, textvariable=variables[key], width=52).grid(
+                row=row, column=1, sticky="ew", padx=(8, 0), pady=3
+            )
 
         def browse_defaults() -> None:
             filename = filedialog.askopenfilename(title="Select MySQL/MariaDB option file", parent=dialog)
             if filename:
                 variables["defaults_file"].set(filename)
 
-        ttk.Button(body, text="Browse", command=browse_defaults).grid(row=6, column=2, padx=(6, 0))
-        ttk.Label(body, text="Use 'auto', 'mysqldump', 'mariadb-dump', or a full executable path.").grid(
-            row=8, column=0, columnspan=3, sticky="w", pady=(4, 0)
+        ttk.Button(mysql_frame, text="Browse", command=browse_defaults).grid(row=5, column=2, padx=(6, 0))
+        ttk.Checkbutton(mysql_frame, text="Dump all databases", variable=variables["all_databases"]).grid(
+            row=7, column=0, columnspan=3, sticky="w", pady=(5, 0)
         )
-        ttk.Checkbutton(body, text="Dump all databases", variable=variables["all_databases"]).grid(
-            row=9, column=0, columnspan=3, sticky="w", pady=4
+
+        sqlite_frame = ttk.LabelFrame(body, text="SQLite", padding=10)
+        sqlite_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=4)
+        sqlite_frame.columnconfigure(1, weight=1)
+        ttk.Label(sqlite_frame, text="SQLite database file:").grid(row=0, column=0, sticky="w")
+        ttk.Entry(sqlite_frame, textvariable=variables["sqlite_path"], width=52).grid(
+            row=0, column=1, sticky="ew", padx=(8, 0)
         )
+
+        def browse_sqlite() -> None:
+            filename = filedialog.askopenfilename(
+                title="Select SQLite database",
+                parent=dialog,
+                filetypes=(
+                    ("SQLite databases", "*.db *.sqlite *.sqlite3"),
+                    ("All files", "*.*"),
+                ),
+            )
+            if filename:
+                variables["sqlite_path"].set(filename)
+
+        ttk.Button(sqlite_frame, text="Browse", command=browse_sqlite).grid(row=0, column=2, padx=(6, 0))
+        ttk.Label(
+            sqlite_frame,
+            text="A consistent SQL dump is generated with Python's built-in sqlite3 backup API.",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+
         ttk.Checkbutton(body, text="Enable this profile", variable=variables["enabled"]).grid(
-            row=10, column=0, columnspan=3, sticky="w", pady=4
+            row=4, column=0, columnspan=3, sticky="w", pady=6
         )
 
         result: list[DatabaseDumpProfile] = []
 
         def save() -> None:
-            try:
-                port = int(variables["port"].get())
-                if not 1 <= port <= 65535:
-                    raise ValueError
-            except ValueError:
-                messagebox.showerror(APP_NAME, "Port must be a number from 1 to 65535.", parent=dialog)
-                return
+            engine = variables["engine"].get().strip().lower()
             name = variables["name"].get().strip()
-            database = variables["database"].get().strip()
-            all_databases = variables["all_databases"].get()
             if not name:
                 messagebox.showerror(APP_NAME, "Enter a profile name.", parent=dialog)
                 return
-            if not all_databases and not database:
-                messagebox.showerror(APP_NAME, "Enter a database name or select Dump all databases.", parent=dialog)
-                return
+            if engine == "sqlite":
+                sqlite_path = Path(variables["sqlite_path"].get()).expanduser()
+                if not sqlite_path.is_file():
+                    messagebox.showerror(APP_NAME, "Select an existing SQLite database file.", parent=dialog)
+                    return
+                port = 3306
+            else:
+                try:
+                    port = int(variables["port"].get())
+                    if not 1 <= port <= 65535:
+                        raise ValueError
+                except ValueError:
+                    messagebox.showerror(APP_NAME, "Port must be a number from 1 to 65535.", parent=dialog)
+                    return
+                if not variables["all_databases"].get() and not variables["database"].get().strip():
+                    messagebox.showerror(APP_NAME, "Enter a database name or select Dump all databases.", parent=dialog)
+                    return
+
             result.append(
                 DatabaseDumpProfile(
                     name=name,
-                    database=database,
+                    engine=engine,
+                    database=variables["database"].get().strip(),
                     host=variables["host"].get().strip() or "localhost",
                     port=port,
                     user=variables["user"].get().strip() or "root",
                     executable=variables["executable"].get().strip() or "auto",
                     defaults_file=variables["defaults_file"].get().strip(),
                     extra_args=variables["extra_args"].get().strip(),
-                    all_databases=all_databases,
+                    all_databases=variables["all_databases"].get(),
+                    sqlite_path=variables["sqlite_path"].get().strip(),
                     enabled=variables["enabled"].get(),
                 )
             )
             dialog.destroy()
 
         controls = ttk.Frame(body)
-        controls.grid(row=11, column=0, columnspan=3, sticky="e", pady=(12, 0))
+        controls.grid(row=5, column=0, columnspan=3, sticky="e", pady=(12, 0))
         ttk.Button(controls, text="Cancel", command=dialog.destroy).pack(side="right")
         ttk.Button(controls, text="Save", command=save).pack(side="right", padx=(0, 6))
         dialog.wait_window()
         return result[0] if result else None
 
     def _create_archive(self, sources: list[Path], archive_path: Path, config: dict, log_file: Path) -> None:
-        profiles = [DatabaseDumpProfile(**item) for item in config.get("database_profiles", []) if item.get("enabled", True)]
+        profiles = [
+            DatabaseDumpProfile(**item)
+            for item in config.get("database_profiles", [])
+            if item.get("enabled", True)
+        ]
         if not profiles:
             super()._create_archive(sources, archive_path, config, log_file)
             return
@@ -228,10 +319,45 @@ class DatabaseDumpMixin:
             dump_dir.mkdir(parents=True, exist_ok=True)
             for profile in profiles:
                 self._check_cancelled()
-                self._dump_database(profile, dump_dir, log_file)
+                if profile.engine.lower() == "sqlite":
+                    self._dump_sqlite(profile, dump_dir, log_file)
+                else:
+                    self._dump_mysql(profile, dump_dir, log_file)
             super()._create_archive([*sources, dump_dir], archive_path, config, log_file)
 
-    def _dump_database(self, profile: DatabaseDumpProfile, dump_dir: Path, log_file: Path) -> None:
+    def _dump_sqlite(self, profile: DatabaseDumpProfile, dump_dir: Path, log_file: Path) -> None:
+        source_path = Path(profile.sqlite_path).expanduser()
+        if not source_path.is_file():
+            raise FileNotFoundError(f"SQLite database does not exist: {source_path}")
+
+        safe_name = self._safe_filename_prefix(profile.name) or source_path.stem or "sqlite"
+        snapshot_path = dump_dir / f".{safe_name}.snapshot.sqlite3"
+        output_path = dump_dir / f"{safe_name}.sql"
+        self._worker_log(log_file, f"Creating SQLite dump '{profile.name}' from {source_path}.")
+
+        source_uri = source_path.resolve().as_uri() + "?mode=ro"
+        with sqlite3.connect(source_uri, uri=True) as source_connection:
+            with sqlite3.connect(snapshot_path) as snapshot_connection:
+                source_connection.backup(snapshot_connection)
+
+        try:
+            with sqlite3.connect(snapshot_path) as snapshot_connection:
+                with output_path.open("w", encoding="utf-8", newline="\n") as output_handle:
+                    for statement in snapshot_connection.iterdump():
+                        self._check_cancelled()
+                        output_handle.write(statement)
+                        output_handle.write("\n")
+        finally:
+            snapshot_path.unlink(missing_ok=True)
+
+        if not output_path.exists() or output_path.stat().st_size == 0:
+            raise RuntimeError(f"SQLite dump '{profile.name}' produced an empty SQL file.")
+        self._worker_log(
+            log_file,
+            f"SQLite dump completed: {output_path.name} ({self._human_size(output_path.stat().st_size)})",
+        )
+
+    def _dump_mysql(self, profile: DatabaseDumpProfile, dump_dir: Path, log_file: Path) -> None:
         executable = self._resolve_dump_executable(profile.executable)
         safe_name = self._safe_filename_prefix(profile.name) or "database"
         scope = "all_databases" if profile.all_databases else self._safe_filename_prefix(profile.database)
@@ -243,24 +369,28 @@ class DatabaseDumpMixin:
             if not defaults_path.is_file():
                 raise FileNotFoundError(f"Database defaults file does not exist: {defaults_path}")
             command.append(f"--defaults-extra-file={os.fspath(defaults_path)}")
-        command.extend([
-            "--host", profile.host,
-            "--port", str(profile.port),
-            "--user", profile.user,
-            "--single-transaction",
-            "--routines",
-            "--events",
-            "--triggers",
-            "--hex-blob",
-        ])
+        command.extend(
+            [
+                "--host",
+                profile.host,
+                "--port",
+                str(profile.port),
+                "--user",
+                profile.user,
+                "--single-transaction",
+                "--routines",
+                "--events",
+                "--triggers",
+                "--hex-blob",
+            ]
+        )
         if profile.extra_args:
             command.extend(shlex.split(profile.extra_args, posix=os.name != "nt"))
-        if profile.all_databases:
-            command.append("--all-databases")
-        else:
-            command.extend(["--databases", profile.database])
+        command.append("--all-databases" if profile.all_databases else "--databases")
+        if not profile.all_databases:
+            command.append(profile.database)
 
-        self._worker_log(log_file, f"Creating database dump '{profile.name}' from {profile.host}:{profile.port}.")
+        self._worker_log(log_file, f"Creating MySQL/MariaDB dump '{profile.name}' from {profile.host}:{profile.port}.")
         normalized = [os.fspath(argument) for argument in command]
         with output_path.open("wb") as output_handle:
             process = subprocess.Popen(
@@ -281,9 +411,13 @@ class DatabaseDumpMixin:
                 with self.process_lock:
                     if self.current_process is process:
                         self.current_process = None
+
         if not output_path.exists() or output_path.stat().st_size == 0:
             raise RuntimeError(f"Database dump '{profile.name}' produced an empty SQL file.")
-        self._worker_log(log_file, f"Database dump completed: {output_path.name} ({self._human_size(output_path.stat().st_size)})")
+        self._worker_log(
+            log_file,
+            f"MySQL/MariaDB dump completed: {output_path.name} ({self._human_size(output_path.stat().st_size)})",
+        )
 
     @staticmethod
     def _resolve_dump_executable(requested: str) -> str:
