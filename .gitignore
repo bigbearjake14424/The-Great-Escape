@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Application-generated files
+*.tar
+*.tar.gz
+*.tar.xz
+*.zip
+*.log
+*.partial
+settings.json
+logs/
+Backups/
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+htmlcov/
