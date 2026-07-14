@@ -14,7 +14,7 @@ from .config import (
     DEFAULT_LOCAL_DESTINATIONS,
     DEFAULT_SOURCES,
 )
-from .models import LocalDestination, RcloneDestination, SourceItem
+from .models import DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
 
 
 class SettingsMixin:
@@ -23,6 +23,7 @@ class SettingsMixin:
             "sources": [asdict(item) for item in self.sources],
             "local_destinations": [asdict(item) for item in self.local_destinations],
             "rclone_destinations": [asdict(item) for item in self.rclone_destinations],
+            "database_profiles": [asdict(item) for item in self.database_profiles],
             "archive_dir": self.archive_dir_var.get(),
             "archive_prefix": self.archive_prefix_var.get(),
             "threads": self.threads_var.get(),
@@ -50,6 +51,7 @@ class SettingsMixin:
             self.sources = [SourceItem(path) for path in DEFAULT_SOURCES]
             self.local_destinations = [LocalDestination(path) for path in DEFAULT_LOCAL_DESTINATIONS]
             self.rclone_destinations = []
+            self.database_profiles = []
             self.appearance = deepcopy(DEFAULT_APPEARANCE)
             return
 
@@ -58,6 +60,7 @@ class SettingsMixin:
             self.sources = [SourceItem(**item) for item in data.get("sources", [])]
             self.local_destinations = [LocalDestination(**item) for item in data.get("local_destinations", [])]
             self.rclone_destinations = [RcloneDestination(**item) for item in data.get("rclone_destinations", [])]
+            self.database_profiles = [DatabaseDumpProfile(**item) for item in data.get("database_profiles", [])]
             self.archive_dir_var.set(data.get("archive_dir", str(DEFAULT_ARCHIVE_DIR)))
             self.archive_prefix_var.set(data.get("archive_prefix", "backup"))
             self.threads_var.set(data.get("threads", min(4, os.cpu_count() or 1)))
@@ -74,6 +77,7 @@ class SettingsMixin:
             self.sources = [SourceItem(path) for path in DEFAULT_SOURCES]
             self.local_destinations = [LocalDestination(path) for path in DEFAULT_LOCAL_DESTINATIONS]
             self.rclone_destinations = []
+            self.database_profiles = []
             self.appearance = deepcopy(DEFAULT_APPEARANCE)
 
     def _reload_settings(self) -> None:
