@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tkinter import ttk
 
 from .models import LocalDestination, SourceItem
 from .windowing import DND_FILES, DRAG_AND_DROP_AVAILABLE
@@ -9,7 +10,22 @@ from .windowing import DND_FILES, DRAG_AND_DROP_AVAILABLE
 class DragDropMixin:
     """Enable file and folder drops when tkinterdnd2 is installed."""
 
+    def _install_drag_and_drop_notes(self) -> None:
+        source_text = (
+            "Drag files or folders onto the Sources list to add them. "
+            "Install tkinterdnd2 if drag-and-drop is unavailable."
+        )
+        destination_text = (
+            "Drag folders onto the Local destination list to add them. "
+            "rclone destinations are configured with the buttons below."
+        )
+        ttk.Label(self.sources_tab, text=source_text, justify="left").pack(anchor="w", pady=(6, 0))
+        ttk.Label(self.destinations_tab, text=destination_text, justify="left").pack(anchor="w", pady=(6, 0))
+
     def _configure_drag_and_drop(self) -> None:
+        if getattr(self, "_drag_and_drop_configured", False):
+            return
+        self._drag_and_drop_configured = True
         self.drag_and_drop_available = DRAG_AND_DROP_AVAILABLE
         if not DRAG_AND_DROP_AVAILABLE:
             self._log(
