@@ -11,6 +11,7 @@ from .config import (
     CONFIG_FILE,
     DEFAULT_APPEARANCE,
     DEFAULT_ARCHIVE_DIR,
+    DEFAULT_AUTOMATION,
     DEFAULT_LOCAL_DESTINATIONS,
     DEFAULT_SOURCES,
 )
@@ -34,6 +35,7 @@ class SettingsMixin:
             "rclone_transfers": self.rclone_transfers_var.get(),
             "rclone_checkers": self.rclone_checkers_var.get(),
             "appearance": dict(self.appearance),
+            "automation": dict(self.automation),
         }
 
     def _save_settings(self, notify: bool = True) -> None:
@@ -53,6 +55,7 @@ class SettingsMixin:
             self.rclone_destinations = []
             self.database_profiles = []
             self.appearance = deepcopy(DEFAULT_APPEARANCE)
+            self.automation = deepcopy(DEFAULT_AUTOMATION)
             return
 
         try:
@@ -72,6 +75,8 @@ class SettingsMixin:
             self.rclone_checkers_var.set(data.get("rclone_checkers", 8))
             loaded_appearance = data.get("appearance", {})
             self.appearance = {**deepcopy(DEFAULT_APPEARANCE), **loaded_appearance}
+            loaded_automation = data.get("automation", {})
+            self.automation = {**deepcopy(DEFAULT_AUTOMATION), **loaded_automation}
         except Exception as exc:
             messagebox.showwarning(APP_NAME, f"Settings could not be loaded. Defaults will be used.\n\n{exc}")
             self.sources = [SourceItem(path) for path in DEFAULT_SOURCES]
@@ -79,9 +84,11 @@ class SettingsMixin:
             self.rclone_destinations = []
             self.database_profiles = []
             self.appearance = deepcopy(DEFAULT_APPEARANCE)
+            self.automation = deepcopy(DEFAULT_AUTOMATION)
 
     def _reload_settings(self) -> None:
         self._load_settings()
         self._apply_appearance()
         self._refresh_all_trees()
-        self._log("Settings reloaded.")
+        self._apply_startup_settings()
+        self._log("Settings reloaded and applied.")
