@@ -67,11 +67,16 @@ class ToolsMixin:
             APP_NAME,
             f"{APP_NAME} {APP_VERSION}\n\n"
             "Creates a .tar.xz archive using GNU tar and multi-threaded xz, then distributes the completed archive "
-            "to enabled local folders and rclone destinations. Appearance and backup settings are stored as JSON "
-            "in the user's home directory.",
+            "to enabled local folders and rclone destinations. Appearance, automation, database, and backup settings "
+            "are stored as JSON in the user's home directory.",
         )
 
     def _on_close(self) -> None:
+        if hasattr(self, "_handle_window_close") and self._handle_window_close():
+            return
+        if hasattr(self, "_exit_application"):
+            self._exit_application()
+            return
         if self.worker_thread and self.worker_thread.is_alive():
             if not messagebox.askyesno(APP_NAME, "A backup is running. Cancel it and exit?"):
                 return
