@@ -1,6 +1,6 @@
 # The Great Escape
 
-**Current version: 1.1.1**
+**Current version: 1.2.0**
 
 The Great Escape is a Linux desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
@@ -18,8 +18,22 @@ The source is split into focused modules so individual features can be reviewed,
 - Upload archives to multiple rclone remotes.
 - Verify archives before distribution.
 - Use `.partial` local files until copying completes.
+- Keep only the newest five matching backup archives in each destination.
+- Prune old archives from both local folders and rclone remotes after a successful transfer.
 - Cancel an active backup.
 - Save settings and timestamped logs under the user home directory.
+
+## Destination retention
+
+After a backup is copied or uploaded successfully, The Great Escape checks that destination and keeps the newest five archives created with the same filename prefix.
+
+Only generated archive names matching this format are eligible for cleanup:
+
+```text
+prefix_YYYYMMDD_HHMMSS.tar.xz
+```
+
+Unrelated files, folders, partial files, and archives with a different prefix are not deleted. Retention cleanup failures are written to the activity log as warnings and do not remove the newly completed backup.
 
 ## Requirements
 
@@ -46,6 +60,7 @@ great_escape/
 ├── config.py
 ├── messaging.py
 ├── models.py
+├── retention.py
 ├── settings.py
 ├── tools.py
 └── ui.py
