@@ -1,105 +1,90 @@
 # The Great Escape
 
-**Current version: 1.4.0**
+**Current version: 1.5.0**
 
 The Great Escape is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
 ## Features
 
 - Select individual files and folders.
-- Enable or disable configured sources and destinations.
+- Generate MySQL, MariaDB, and SQLite SQL dumps before archive creation.
+- Configure multiple database profiles and enable or disable them independently.
 - Create `.tar.xz` archives with multi-threaded xz compression.
 - Use four compression threads on Raspberry Pi 5.
-- Create MySQL and MariaDB SQL dumps before building the archive.
-- Back up one database or all databases from multiple configured servers.
-- Include routines, events, triggers, and binary data in database dumps.
 - Copy completed archives to multiple local destinations.
 - Upload archives to multiple rclone remotes.
 - Verify archives before distribution.
-- Use `.partial` local files until copying completes.
 - Keep only the newest five matching backup archives in each destination.
-- Prune old archives from both local folders and rclone remotes after a successful transfer.
-- Customize the TTK theme, fonts, font sizes, window colors, list colors, and accent color.
-- Store backup and appearance preferences in one JSON settings file.
-- Maximize the application for the available screen on Windows, macOS, Linux, and Raspberry Pi OS.
-- Cancel an active backup using platform-appropriate process handling.
+- Customize TTK themes, fonts, font sizes, and GUI colors.
+- Maximize the application on Windows, macOS, Linux, and Raspberry Pi OS.
+- Store backup, database, and appearance preferences in JSON.
 
-## MySQL and MariaDB dumps
+## Menu layout
 
-Open **Databases → Manage MySQL / MariaDB Dumps…** to add database dump profiles.
+The main menu is ordered as:
 
-Each profile supports:
+```text
+File | Tools | Appearance | Databases | Help
+```
 
-- Profile name
+The **Sources** tab also includes a database-backup note and a button that opens the database profile manager.
+
+## Database dumps
+
+Open **Databases → Manage Database Dumps…**.
+
+### MySQL and MariaDB
+
+Profiles support:
+
 - Host and port
-- Database user
-- One named database or all databases
+- Username
+- One database or all databases
 - Automatic detection of `mariadb-dump` or `mysqldump`
-- A specific executable name or full executable path
-- A MySQL/MariaDB client defaults file
+- A specific executable or full executable path
+- A protected MySQL/MariaDB defaults file
 - Optional extra command-line arguments
-- Enable or disable without removing the profile
 
-Database dumps are created immediately before archive compression. The generated `.sql` files are placed inside a `database_dumps` folder in the tarball. Temporary uncompressed SQL files are removed automatically after archive creation.
+The application uses options for consistent and complete dumps, including routines, events, triggers, transactions, and binary data.
 
-### Password security
-
-The application does **not** store database passwords in its JSON settings file. Store credentials in a MySQL/MariaDB client option file and select it in the profile's **Defaults file** field.
-
-Example option file:
+Passwords are not stored in the JSON settings file. Store credentials in a protected client option file, for example:
 
 ```ini
 [client]
 password=your_database_password
 ```
 
-On Linux, protect the file:
+On Linux:
 
 ```bash
 chmod 600 ~/.my.cnf
 ```
 
-The dump profile stores only the path to that file. Do not commit credential files to GitHub.
+### SQLite
 
-### Database client requirement
+SQLite support uses Python's built-in `sqlite3` module and does not require an external dump executable.
 
-Install a compatible client utility on the computer running The Great Escape:
+Select a `.db`, `.sqlite`, or `.sqlite3` file in the profile. Before compression, the application:
 
-```bash
-sudo apt install mariadb-client
-```
-
-Depending on the installation, the dump command may be named `mariadb-dump` or `mysqldump`. The **auto** setting checks for both.
+1. Opens the source database read-only.
+2. Creates a consistent temporary snapshot with SQLite's backup API.
+3. Exports the snapshot as a portable SQL dump.
+4. Adds the SQL file under `database_dumps` in the tarball.
+5. Removes the temporary snapshot and uncompressed dump after archive creation.
 
 ## Appearance settings
 
-Open **Appearance → Customize…** to change:
+Open **Appearance → Customize…** to change the TTK theme, font family, widget font sizes, background colors, surface colors, and accent colors.
 
-- Available TTK theme
-- Font family
-- Base font size
-- Heading font size
-- Treeview font size
-- Button font size
-- Window background
-- Text color
-- Entry and list background
-- Accent and selection color
-- Selected-text color
-
-Use **Apply** to preview changes or **Save** to write them to:
+Settings are saved to:
 
 ```text
 ~/.config/the-great-escape/settings.json
 ```
 
-Use **Appearance → Reset to Defaults** to restore the original appearance.
-
 ## Destination retention
 
-After a backup is copied or uploaded successfully, The Great Escape checks that destination and keeps the newest five archives created with the same filename prefix.
-
-Only generated archive names matching this format are eligible for cleanup:
+After a successful transfer, each destination keeps the newest five archives matching:
 
 ```text
 prefix_YYYYMMDD_HHMMSS.tar.xz
@@ -107,16 +92,11 @@ prefix_YYYYMMDD_HHMMSS.tar.xz
 
 Unrelated files, folders, partial files, and archives with a different prefix are not deleted.
 
-## Supported platforms
+## Requirements
 
-The Python application supports:
+The Python application supports Python 3.10 or newer on Raspberry Pi OS, Linux, Windows 10/11, and macOS.
 
-- Raspberry Pi OS and other Linux distributions
-- Windows 10 and Windows 11
-- macOS
-- Python 3.10 and newer, including CPython virtual environments
-
-The backup engine requires `tar` and `xz` to be installed and available in `PATH`. `rclone` is optional unless cloud destinations are enabled. `mariadb-dump` or `mysqldump` is required only when database dump profiles are enabled.
+The archive engine requires `tar` and `xz` in `PATH`. `rclone` is optional. MySQL/MariaDB clients are required only for those dump profiles. SQLite support is included with Python.
 
 ### Raspberry Pi OS, Debian, and Ubuntu
 
@@ -124,14 +104,6 @@ The backup engine requires `tar` and `xz` to be installed and available in `PATH
 sudo apt update
 sudo apt install python3 python3-tk tar xz-utils rclone mariadb-client
 ```
-
-### Windows
-
-Install Python with Tkinter, plus versions of GNU tar and xz that are available in `PATH`. Install rclone separately when cloud destinations are needed. Install MySQL Shell, MySQL Client, or MariaDB Client when database dumps are needed, and ensure the dump executable is available in `PATH` or select its full path in the profile.
-
-### macOS
-
-Python must include Tkinter. Install xz, rclone, and a MySQL or MariaDB client with your preferred package manager. macOS includes `tar`, although GNU tar may provide the most consistent behavior.
 
 ## Run
 
