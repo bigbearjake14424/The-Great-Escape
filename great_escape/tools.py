@@ -66,6 +66,10 @@ class ToolsMixin:
         messagebox.showinfo(
             APP_NAME,
             f"{APP_NAME} {APP_VERSION}\n\n"
+            "Copyright (C) 2026 Jacob Stallings\n"
+            "Licensed under GNU GPL version 3 only.\n\n"
+            "This program comes with ABSOLUTELY NO WARRANTY. It is free software, and you may redistribute and "
+            "modify it under the GPLv3 terms. See the LICENSE and NOTICE files included with the project.\n\n"
             "Creates a .tar.xz archive using GNU tar and multi-threaded xz, then distributes the completed archive "
             "to enabled local folders and rclone destinations. Appearance, automation, database, and backup settings "
             "are stored as JSON in the user's home directory.",
