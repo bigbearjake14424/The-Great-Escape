@@ -73,6 +73,7 @@ class BackupApp(
         self._install_automation_menu()
         self._build_ui()
         self._install_database_source_note()
+        self._install_drag_and_drop_notes()
         self._load_settings()
         self._apply_appearance()
         self._refresh_all_trees()
