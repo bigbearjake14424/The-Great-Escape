@@ -1,0 +1,7 @@
+cat > .the-great_escape_mariadb.cnf.example <<'EOF'
+[client]
+user=your_database_user
+password=your_database_password
+host=your_database_host
+port=3306
+EOF
