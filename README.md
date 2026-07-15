@@ -10,7 +10,7 @@ If you are an experienced developer and notice something that could be improved,
 
 Thank you for taking a look at **The Great Escape**!
 
-**Current version: 1.6.0**
+**Current version: 1.7.0**
 
 The Great Escape (from data loss...) is a cross-platform desktop backup utility built with Python, Tkinter, and TTK. It creates one compressed `.tar.xz` archive and distributes the finished archive to enabled local folders and rclone remotes.
 
@@ -34,6 +34,26 @@ The Great Escape (from data loss...) is a cross-platform desktop backup utility 
 - Maximize the application on Windows, macOS, Linux, and Raspberry Pi OS.
 - Load and apply backup, database, appearance, automation, and window settings at startup.
 - Store settings in JSON.
+
+## Architecture
+
+Version 1.7.0 begins a move away from a large mixin-driven application object toward explicit composition.
+
+`BackupApp` owns a `BackupController`, and the controller coordinates focused service objects:
+
+- `ProcessRunner` runs and cancels child processes.
+- `ArchiveService` creates and verifies tarballs.
+- `DatabaseDumpService` prepares MySQL, MariaDB, and SQLite dumps.
+- `DestinationService` copies or uploads completed archives.
+- `RetentionService` removes older matching archives.
+
+The control flow is explicit:
+
+```python
+self.backup_controller.run(config)
+```
+
+rather than relying on mixin order and chained `super()` calls. GUI mixins remain temporarily for dialogs and widget construction, but backup execution no longer depends on Python's method-resolution order.
 
 ## Menu layout
 
@@ -190,18 +210,24 @@ great_escape/
 ├── appearance.py
 ├── automation.py
 ├── backup.py
+├── backup_controller.py
 ├── config.py
 ├── databases.py
 ├── dragdrop.py
 ├── messaging.py
 ├── models.py
 ├── platform_utils.py
-├── processes.py
-├── retention.py
 ├── settings.py
 ├── tools.py
 ├── ui.py
-└── windowing.py
+├── windowing.py
+└── services/
+    ├── __init__.py
+    ├── archive.py
+    ├── database_dump.py
+    ├── destinations.py
+    ├── process_runner.py
+    └── retention.py
 ```
 
 ## Configuration
