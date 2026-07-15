@@ -8,13 +8,13 @@ import tkinter as tk
 from .appearance import AppearanceMixin
 from .automation import AutomationMixin
 from .backup import BackupMixin
+from .backup_controller import BackupController
 from .config import APP_NAME, APP_VERSION, DEFAULT_ARCHIVE_DIR
 from .databases import DatabaseDumpMixin
 from .dragdrop import DragDropMixin
 from .messaging import MessagingMixin
 from .models import DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
-from .processes import ProcessMixin
-from .retention import RetentionMixin
+from .services import ArchiveService, DatabaseDumpService, DestinationService, ProcessRunner, RetentionService
 from .settings import SettingsMixin
 from .tools import ToolsMixin
 from .ui import UIMixin
@@ -28,8 +28,6 @@ class BackupApp(
     DatabaseDumpMixin,
     DragDropMixin,
     AutomationMixin,
-    RetentionMixin,
-    ProcessMixin,
     BackupMixin,
     MessagingMixin,
     ToolsMixin,
@@ -49,8 +47,42 @@ class BackupApp(
         self.message_queue: queue.Queue[tuple[str, Any]] = queue.Queue()
         self.worker_thread: threading.Thread | None = None
         self.cancel_event = threading.Event()
-        self.current_process: subprocess.Popen[str] | None = None
+        self.current_process: subprocess.Popen | None = None
         self.process_lock = threading.Lock()
+
+        self.process_runner = ProcessRunner(
+            cancel_event=self.cancel_event,
+            process_lock=self.process_lock,
+            set_current_process=self._set_current_process,
+            log=self._worker_log,
+        )
+        self.retention_service = RetentionService(self.process_runner, self._worker_log)
+        self.archive_service = ArchiveService(
+            self.process_runner,
+            self._worker_log,
+            lambda value, text: self._queue("progress", (value, text)),
+            self._human_size,
+        )
+        self.database_dump_service = DatabaseDumpService(
+            self.process_runner,
+            self._worker_log,
+            self._safe_filename_prefix,
+            self._human_size,
+        )
+        self.destination_service = DestinationService(
+            self.process_runner,
+            self.retention_service,
+            self._worker_log,
+        )
+        self.backup_controller = BackupController(
+            self.process_runner,
+            self.archive_service,
+            self.database_dump_service,
+            self.destination_service,
+            self._queue,
+            self._worker_log,
+            self._safe_filename_prefix,
+        )
 
         self.archive_dir_var = tk.StringVar(value=str(DEFAULT_ARCHIVE_DIR))
         self.archive_prefix_var = tk.StringVar(value="backup")
@@ -81,3 +113,6 @@ class BackupApp(
         self._apply_startup_settings()
         self.after(100, self._process_messages)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _set_current_process(self, process: subprocess.Popen | None) -> None:
+        self.current_process = process
