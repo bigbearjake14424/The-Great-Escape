@@ -1,7 +1,7 @@
 from pathlib import Path
 
 APP_NAME = "The Great Escape"
-APP_VERSION = "1.6.1"
+APP_VERSION = "1.7.0"
 DESTINATION_RETENTION_COUNT = 5
 CONFIG_DIR = Path.home() / ".config" / "the-great-escape"
 CONFIG_FILE = CONFIG_DIR / "settings.json"
