@@ -31,3 +31,6 @@ Backups/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local database credentials
+.the_great_escape_mariadb.cnf
