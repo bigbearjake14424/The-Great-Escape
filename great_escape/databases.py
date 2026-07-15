@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-import os
-import shlex
-import shutil
-import sqlite3
-import subprocess
-import tempfile
 from dataclasses import asdict
 from pathlib import Path
 import tkinter as tk
@@ -13,11 +7,10 @@ from tkinter import filedialog, messagebox, ttk
 
 from .config import APP_NAME
 from .models import DatabaseDumpProfile
-from .platform_utils import popen_platform_options
 
 
 class DatabaseDumpMixin:
-    """Manage database profiles and add generated dumps to each archive."""
+    """Build database-profile dialogs; dump execution belongs to DatabaseDumpService."""
 
     def _install_database_menu(self) -> None:
         menubar = self.nametowidget(self.cget("menu"))
@@ -56,7 +49,6 @@ class DatabaseDumpMixin:
 
         frame = ttk.Frame(dialog, padding=12)
         frame.pack(fill="both", expand=True)
-
         columns = ("enabled", "name", "engine", "location", "user", "scope")
         tree = ttk.Treeview(frame, columns=columns, show="headings", selectmode="browse")
         headings = {
@@ -120,9 +112,7 @@ class DatabaseDumpMixin:
 
         def remove_profile() -> None:
             index = selected_index()
-            if index is not None and messagebox.askyesno(
-                APP_NAME, "Remove the selected database profile?", parent=dialog
-            ):
+            if index is not None and messagebox.askyesno(APP_NAME, "Remove the selected database profile?", parent=dialog):
                 self.database_profiles.pop(index)
                 refresh()
 
@@ -137,7 +127,6 @@ class DatabaseDumpMixin:
             text="Save and Close",
             command=lambda: (self._save_settings(notify=False), dialog.destroy()),
         ).pack(side="right")
-
         ttk.Label(
             frame,
             text=(
@@ -180,20 +169,18 @@ class DatabaseDumpMixin:
         body = ttk.Frame(dialog, padding=14)
         body.pack(fill="both", expand=True)
         body.columnconfigure(1, weight=1)
-
         ttk.Label(body, text="Profile name:").grid(row=0, column=0, sticky="w", pady=4)
         ttk.Entry(body, textvariable=variables["name"], width=56).grid(
             row=0, column=1, columnspan=2, sticky="ew", padx=(8, 0), pady=4
         )
         ttk.Label(body, text="Database type:").grid(row=1, column=0, sticky="w", pady=4)
-        engine_combo = ttk.Combobox(
+        ttk.Combobox(
             body,
             textvariable=variables["engine"],
             values=("mysql", "sqlite"),
             state="readonly",
             width=18,
-        )
-        engine_combo.grid(row=1, column=1, sticky="w", padx=(8, 0), pady=4)
+        ).grid(row=1, column=1, sticky="w", padx=(8, 0), pady=4)
 
         mysql_frame = ttk.LabelFrame(body, text="MySQL / MariaDB", padding=10)
         mysql_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=(8, 4))
@@ -235,10 +222,7 @@ class DatabaseDumpMixin:
             filename = filedialog.askopenfilename(
                 title="Select SQLite database",
                 parent=dialog,
-                filetypes=(
-                    ("SQLite databases", "*.db *.sqlite *.sqlite3"),
-                    ("All files", "*.*"),
-                ),
+                filetypes=(("SQLite databases", "*.db *.sqlite *.sqlite3"), ("All files", "*.*")),
             )
             if filename:
                 variables["sqlite_path"].set(filename)
@@ -248,7 +232,6 @@ class DatabaseDumpMixin:
             sqlite_frame,
             text="A consistent SQL dump is generated with Python's built-in sqlite3 backup API.",
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
-
         ttk.Checkbutton(body, text="Enable this profile", variable=variables["enabled"]).grid(
             row=4, column=0, columnspan=3, sticky="w", pady=6
         )
@@ -278,7 +261,6 @@ class DatabaseDumpMixin:
                 if not variables["all_databases"].get() and not variables["database"].get().strip():
                     messagebox.showerror(APP_NAME, "Enter a database name or select Dump all databases.", parent=dialog)
                     return
-
             result.append(
                 DatabaseDumpProfile(
                     name=name,
@@ -303,131 +285,3 @@ class DatabaseDumpMixin:
         ttk.Button(controls, text="Save", command=save).pack(side="right", padx=(0, 6))
         dialog.wait_window()
         return result[0] if result else None
-
-    def _create_archive(self, sources: list[Path], archive_path: Path, config: dict, log_file: Path) -> None:
-        profiles = [
-            DatabaseDumpProfile(**item)
-            for item in config.get("database_profiles", [])
-            if item.get("enabled", True)
-        ]
-        if not profiles:
-            super()._create_archive(sources, archive_path, config, log_file)
-            return
-
-        with tempfile.TemporaryDirectory(prefix="the-great-escape-db-") as temp_name:
-            dump_dir = Path(temp_name) / "database_dumps"
-            dump_dir.mkdir(parents=True, exist_ok=True)
-            for profile in profiles:
-                self._check_cancelled()
-                if profile.engine.lower() == "sqlite":
-                    self._dump_sqlite(profile, dump_dir, log_file)
-                else:
-                    self._dump_mysql(profile, dump_dir, log_file)
-            super()._create_archive([*sources, dump_dir], archive_path, config, log_file)
-
-    def _dump_sqlite(self, profile: DatabaseDumpProfile, dump_dir: Path, log_file: Path) -> None:
-        source_path = Path(profile.sqlite_path).expanduser()
-        if not source_path.is_file():
-            raise FileNotFoundError(f"SQLite database does not exist: {source_path}")
-
-        safe_name = self._safe_filename_prefix(profile.name) or source_path.stem or "sqlite"
-        snapshot_path = dump_dir / f".{safe_name}.snapshot.sqlite3"
-        output_path = dump_dir / f"{safe_name}.sql"
-        self._worker_log(log_file, f"Creating SQLite dump '{profile.name}' from {source_path}.")
-
-        source_uri = source_path.resolve().as_uri() + "?mode=ro"
-        with sqlite3.connect(source_uri, uri=True) as source_connection:
-            with sqlite3.connect(snapshot_path) as snapshot_connection:
-                source_connection.backup(snapshot_connection)
-
-        try:
-            with sqlite3.connect(snapshot_path) as snapshot_connection:
-                with output_path.open("w", encoding="utf-8", newline="\n") as output_handle:
-                    for statement in snapshot_connection.iterdump():
-                        self._check_cancelled()
-                        output_handle.write(statement)
-                        output_handle.write("\n")
-        finally:
-            snapshot_path.unlink(missing_ok=True)
-
-        if not output_path.exists() or output_path.stat().st_size == 0:
-            raise RuntimeError(f"SQLite dump '{profile.name}' produced an empty SQL file.")
-        self._worker_log(
-            log_file,
-            f"SQLite dump completed: {output_path.name} ({self._human_size(output_path.stat().st_size)})",
-        )
-
-    def _dump_mysql(self, profile: DatabaseDumpProfile, dump_dir: Path, log_file: Path) -> None:
-        executable = self._resolve_dump_executable(profile.executable)
-        safe_name = self._safe_filename_prefix(profile.name) or "database"
-        scope = "all_databases" if profile.all_databases else self._safe_filename_prefix(profile.database)
-        output_path = dump_dir / f"{safe_name}_{scope}.sql"
-
-        command = [executable]
-        if profile.defaults_file:
-            defaults_path = Path(profile.defaults_file).expanduser()
-            if not defaults_path.is_file():
-                raise FileNotFoundError(f"Database defaults file does not exist: {defaults_path}")
-            command.append(f"--defaults-extra-file={os.fspath(defaults_path)}")
-        command.extend(
-            [
-                "--host",
-                profile.host,
-                "--port",
-                str(profile.port),
-                "--user",
-                profile.user,
-                "--single-transaction",
-                "--routines",
-                "--events",
-                "--triggers",
-                "--hex-blob",
-            ]
-        )
-        if profile.extra_args:
-            command.extend(shlex.split(profile.extra_args, posix=os.name != "nt"))
-        command.append("--all-databases" if profile.all_databases else "--databases")
-        if not profile.all_databases:
-            command.append(profile.database)
-
-        self._worker_log(log_file, f"Creating MySQL/MariaDB dump '{profile.name}' from {profile.host}:{profile.port}.")
-        normalized = [os.fspath(argument) for argument in command]
-        with output_path.open("wb") as output_handle:
-            process = subprocess.Popen(
-                normalized,
-                stdout=output_handle,
-                stderr=subprocess.PIPE,
-                **popen_platform_options(),
-            )
-            with self.process_lock:
-                self.current_process = process
-            try:
-                _stdout, stderr = process.communicate()
-                self._check_cancelled(process)
-                if process.returncode != 0:
-                    detail = stderr.decode(errors="replace").strip() if stderr else "unknown database dump error"
-                    raise RuntimeError(f"Database dump '{profile.name}' failed: {detail}")
-            finally:
-                with self.process_lock:
-                    if self.current_process is process:
-                        self.current_process = None
-
-        if not output_path.exists() or output_path.stat().st_size == 0:
-            raise RuntimeError(f"Database dump '{profile.name}' produced an empty SQL file.")
-        self._worker_log(
-            log_file,
-            f"MySQL/MariaDB dump completed: {output_path.name} ({self._human_size(output_path.stat().st_size)})",
-        )
-
-    @staticmethod
-    def _resolve_dump_executable(requested: str) -> str:
-        if requested and requested.lower() != "auto":
-            resolved = shutil.which(requested) or (requested if Path(requested).is_file() else None)
-            if resolved:
-                return os.fspath(resolved)
-            raise FileNotFoundError(f"Database dump executable was not found: {requested}")
-        for candidate in ("mariadb-dump", "mysqldump"):
-            resolved = shutil.which(candidate)
-            if resolved:
-                return resolved
-        raise FileNotFoundError("Neither mariadb-dump nor mysqldump was found in PATH.")
