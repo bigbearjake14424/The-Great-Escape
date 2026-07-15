@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .config import APP_NAME, APP_VERSION, DEFAULT_LOG_DIR
-from .models import DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
+from .models import CancelledError, DatabaseDumpProfile, LocalDestination, RcloneDestination, SourceItem
 from .services import ArchiveService, DatabaseDumpService, DestinationService, ProcessRunner
 
 
@@ -18,9 +18,9 @@ class BackupController:
         archive_service: ArchiveService,
         database_service: DatabaseDumpService,
         destination_service: DestinationService,
-        queue_message,
-        log,
-        safe_filename,
+        queue_message: Callable[[str, object], None],
+        log: Callable[[Path, str], None],
+        safe_filename: Callable[[str], str],
     ) -> None:
         self.process_runner = process_runner
         self.archive_service = archive_service
@@ -100,10 +100,18 @@ class BackupController:
             self.queue_message("progress", (100, "Backup completed successfully"))
             self.log(log_file, "Backup completed successfully.")
             return {"success": True, "archive": str(archive_path) if archive_path else None, "log": str(log_file)}
-        except Exception:
+        except CancelledError:
             if archive_path and archive_path.exists():
                 archive_path.unlink(missing_ok=True)
-            raise
+            if log_file:
+                self.log(log_file, "Backup cancelled by user.")
+            return {"success": False, "cancelled": True, "log": str(log_file) if log_file else None}
+        except Exception as exc:
+            if archive_path and archive_path.exists():
+                archive_path.unlink(missing_ok=True)
+            if log_file:
+                self.log(log_file, f"ERROR: {exc}")
+            return {"success": False, "error": str(exc), "log": str(log_file) if log_file else None}
 
     def _destination_progress(self, completed: int, total: int, text: str) -> None:
         percent = 95 if total <= 0 else 65 + int((completed / total) * 30)
